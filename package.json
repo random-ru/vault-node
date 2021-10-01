@@ -1,5 +1,5 @@
 {
-  "name": "vault",
+  "name": "rnd-vault",
   "version": "0.0.1",
   "description": "Vault bindings for Node.js",
   "main": "dist/index.js",
