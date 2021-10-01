@@ -1,16 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import axios, { AxiosRequestConfig } from 'axios'
+import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 
-export interface VaultConfig {
+export type ReadonlyVaultConfig = {
   space: string
   app: string
+}
+
+export type WritableVaultConfig = ReadonlyVaultConfig & {
   spaceKey: string
   appKey: string
 }
 
-interface Shared {
+export type VaultConfig = ReadonlyVaultConfig | WritableVaultConfig
+
+type Shared = {
   request: <TData extends unknown = void>(
     config: AxiosRequestConfig
   ) => Promise<TData>
@@ -26,68 +31,138 @@ type CollectionPredicate<TValue extends unknown[]> =
     ? TValue[number] | ((value: TValue[number]) => boolean)
     : (value: TValue[number]) => boolean
 
+type GetOne<TValue extends unknown[]> = (
+  predicate: CollectionPredicate<TValue>
+) => Promise<TValue[number] | null>
+
 type DeleteOne<TValue extends unknown[]> = (
   predicate: CollectionPredicate<TValue>
 ) => Promise<void>
+
 type UpdateOne<TValue extends unknown[]> = (
   predicate: CollectionPredicate<TValue>,
   partialValue: TValue[number] extends unknown[]
     ? TValue[number]
     : Partial<TValue[number]>
-) => Promise<TValue[number]>
+) => Promise<TValue[number] | null>
+
 type AddOne<TValue extends unknown[]> = (value: TValue[number]) => Promise<void>
 
-interface SingleField<TValue> {
+type ReadonlySingleField<TValue> = {
   get: Get<TValue>
+}
+
+type SingleField<TValue> = ReadonlySingleField<TValue> & {
   set: Set<TValue>
 }
 
-type CollectionField<TValue extends unknown[]> = SingleField<TValue> & {
-  addOne: AddOne<TValue>
-  updateOne: UpdateOne<TValue>
-  deleteOne: DeleteOne<TValue>
-}
+type ReadonlyCollectionField<TValue extends unknown[]> =
+  ReadonlySingleField<TValue> & {
+    getOne: GetOne<TValue>
+  }
+
+type CollectionField<TValue extends unknown[]> = SingleField<TValue> &
+  ReadonlyCollectionField<TValue> & {
+    addOne: AddOne<TValue>
+    updateOne: UpdateOne<TValue>
+    deleteOne: DeleteOne<TValue>
+  }
+
+export type ReadonlyField<TValue> = TValue extends unknown[]
+  ? ReadonlyCollectionField<TValue>
+  : ReadonlySingleField<TValue>
 
 export type Field<TValue> = TValue extends unknown[]
   ? CollectionField<TValue>
   : SingleField<TValue>
 
-export interface Vault {
+export type ReadonlyVault = {
   field: <TValue>(name: string, initialState: TValue) => Field<TValue>
 }
 
-export function createVault(config: VaultConfig): Vault {
-  const { space, app, spaceKey, appKey } = config
+export type Vault = ReadonlyVault & {
+  field: <TValue>(name: string, initialState: TValue) => ReadonlyField<TValue>
+}
 
-  const instance = axios.create({
+function isWritableConfig(config: VaultConfig): config is WritableVaultConfig {
+  return 'spaceKey' in config && 'appKey' in config
+}
+
+export class VaultException extends Error {
+  constructor(message: string) {
+    super(`[Vault] ${message}`)
+  }
+}
+
+export class VaultBadRequestException extends Error {
+  constructor(message: string) {
+    super(`[Vault - BadRequest] ${message}`)
+  }
+}
+
+export class VaultAccessDeniedException extends Error {
+  constructor(message: string) {
+    super(`[Vault - AccessDenied] ${message}`)
+  }
+}
+
+function handleError(error: AxiosError<{ message: string }>) {
+  switch (error.response?.status) {
+    case 400:
+      throw new VaultBadRequestException(error.response.data.message)
+    case 418:
+      throw new VaultAccessDeniedException(error.response.data.message)
+    default:
+      throw new VaultException(error.response?.data.message ?? error.message)
+  }
+}
+
+export function createVault<TConfig extends VaultConfig>(
+  config: TConfig
+): TConfig extends ReadonlyVaultConfig ? ReadonlyVault : Vault {
+  const { space, app } = config
+
+  const axiosConfig: AxiosRequestConfig = {
     baseURL: `https://vault.random.lgbt/@/${space}/${app}`,
-    headers: { Authorization: `${spaceKey}.${appKey}` },
-  })
+  }
+
+  const isWritable = isWritableConfig(config)
+
+  if (isWritable) {
+    const { spaceKey, appKey } = config
+    axiosConfig.headers = { Authorization: `${spaceKey}.${appKey}` }
+  }
+
+  const instance = axios.create(axiosConfig)
 
   const request: Shared['request'] = (config) => {
-    return instance(config).then(({ data }) => data)
+    return instance(config)
+      .then(({ data }) => data)
+      .catch(handleError)
   }
 
   const shared: Shared = {
     request,
   }
 
+  const fieldFactory = isWritable ? createField : createReadonlyField
+
   return {
-    field: (name, initialState) => createField({ name, initialState, shared }),
+    field: (name, initialState) => fieldFactory({ name, initialState, shared }),
   }
 }
 
-interface FieldParams<TValue> {
+type FieldParams<TValue> = {
   name: string
   initialState: TValue
   shared: Shared
 }
 
-function createSingleField<TValue>({
+function createReadonlySingleField<TValue>({
   name,
   initialState,
   shared,
-}: FieldParams<TValue>): SingleField<TValue> {
+}: FieldParams<TValue>): ReadonlySingleField<TValue> {
   const { request } = shared
 
   const get: Get<TValue> = async () => {
@@ -95,16 +170,51 @@ function createSingleField<TValue>({
     return current || initialState
   }
 
+  return { get }
+}
+
+function createSingleField<TValue>(
+  params: FieldParams<TValue>
+): SingleField<TValue> {
+  const { name, shared } = params
+  const { request } = shared
+
+  const { get } = createReadonlySingleField(params)
+
   const set: Set<TValue> = (value: TValue) =>
     request({ method: 'put', url: name, data: value })
 
   return { get, set }
 }
 
+function createReadonlyCollectionField<TValue extends unknown[]>(
+  params: FieldParams<TValue>
+): ReadonlyCollectionField<TValue> {
+  const { get } = createReadonlySingleField<TValue>(params)
+
+  //////////////////////
+  // ТС ПОШЕЛ В ПИЗДУ //
+  //////////////////////
+
+  const getOne: GetOne<TValue> = async (predicate) => {
+    const values = await get()
+    const value = values.find(
+      typeof predicate === 'function' ? predicate : (item) => item !== predicate
+    )
+    return value || null
+  }
+
+  return {
+    get,
+    getOne,
+  }
+}
+
 function createCollectionField<TValue extends unknown[]>(
   params: FieldParams<TValue>
 ): CollectionField<TValue> {
-  const { get, set } = createSingleField<TValue>(params)
+  const { set } = createSingleField<TValue>(params)
+  const { get, getOne } = createReadonlyCollectionField<TValue>(params)
 
   //////////////////////
   // ТС ПОШЕЛ В ПИЗДУ //
@@ -122,18 +232,24 @@ function createCollectionField<TValue extends unknown[]>(
   const updateOne: UpdateOne<TValue> = async (predicate, partialValue) => {
     const values = await get()
 
+    let updatedValue: TValue[number] | null = null
+
     const updated = values.map((value: TValue[number]) => {
       const condition =
         typeof predicate === 'function' ? predicate(value) : value === predicate
 
       if (!condition) return value
 
-      return Array.isArray(value)
+      updatedValue = Array.isArray(value)
         ? [...value, ...(partialValue as unknown[])]
         : Object.assign(value, partialValue)
+
+      return updatedValue
     })
 
-    return set(updated as TValue)
+    await set(updated as TValue)
+
+    return updatedValue
   }
 
   //////////////////////
@@ -151,10 +267,26 @@ function createCollectionField<TValue extends unknown[]>(
   return {
     get,
     set,
+    getOne,
     addOne,
     updateOne,
     deleteOne,
   }
+}
+
+function createReadonlyField<
+  TValue,
+  TResult = TValue extends unknown[]
+    ? ReadonlyCollectionField<TValue>
+    : ReadonlySingleField<TValue>
+>(params: FieldParams<TValue>): TResult {
+  //////////////////////
+  // ТС ПОШЕЛ В ПИЗДУ //
+  //////////////////////
+
+  return Array.isArray(params.initialState)
+    ? (createReadonlyCollectionField(params as any) as unknown as TResult)
+    : (createReadonlySingleField(params as any) as unknown as TResult)
 }
 
 function createField<
