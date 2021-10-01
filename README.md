@@ -21,12 +21,12 @@ const vault = createVault({
 })
 ```
 
-## Accessing the fields
+## Fields
 
 ```ts
-const admin = vault.field<Admin | null>('admin', null)
+const admin = vault.field<Admin>('admin')
 
-admin.get() // Promise<Admin | null>
+admin.get() // Promise<Admin>
 
 // only with Full access
 admin.set(admin) // Promise<void>
@@ -34,10 +34,8 @@ admin.set(admin) // Promise<void>
 
 ## Collections
 
-The fields that contain Array values have the extra methods:
-
 ```ts
-const users = vault.field<User[]>('users', [])
+const users = vault.collection<User>('users')
 
 users.get() // Promise<User[]>
 users.getOne(user => user.id === 123) // Promise<User | null>
@@ -48,5 +46,3 @@ users.addOne(user) // Promise<void>
 users.updateOne(user => user.id === 123, { age: 27 /* пажилой */ }) // Promise<User | null>
 users.deleteOne(user => user.id === 321) // Promise<void>
 ```
-
-For primitives, you can simply pass the value instend of predicate
