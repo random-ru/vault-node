@@ -42,7 +42,7 @@ users.getOne(user => user.id === 123) // Promise<User | null>
 
 // only with Full access
 users.set(users) // Promise<void>
-users.addOne(user) // Promise<void>
+users.addOne(user) // Promise<User>
 users.updateOne(user => user.id === 123, { age: 27 /* пажилой */ }) // Promise<User | null>
-users.deleteOne(user => user.id === 321) // Promise<void>
+users.deleteOne(user => user.id === 321) // Promise<User | null>
 ```
