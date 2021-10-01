@@ -1,0 +1,43 @@
+{
+  "name": "vault",
+  "version": "0.0.1",
+  "description": "Vault bindings for Node.js",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "ncc build src/index.ts -o dist -m",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/random-ru/vault-node.git"
+  },
+  "keywords": [
+    "vault",
+    "bindings",
+    "db",
+    "database",
+    "firebase-killer"
+  ],
+  "author": "God",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/random-ru/vault-node/issues"
+  },
+  "homepage": "https://github.com/random-ru/vault-node#readme",
+  "dependencies": {
+    "axios": "^0.21.4"
+  },
+  "devDependencies": {
+    "@eslint-kit/eslint-config-base": "^5.0.2",
+    "@eslint-kit/eslint-config-node": "^2.0.0",
+    "@eslint-kit/eslint-config-patch": "^1.0.0",
+    "@eslint-kit/eslint-config-prettier": "^4.0.0",
+    "@eslint-kit/eslint-config-typescript": "^5.1.0",
+    "@types/axios": "^0.14.0",
+    "@typescript-eslint/parser": "4.15.0",
+    "@vercel/ncc": "^0.31.1",
+    "eslint": "7.10.0",
+    "prettier": "2.3.0",
+    "typescript": "^4.4.3"
+  }
+}
