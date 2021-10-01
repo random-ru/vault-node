@@ -2,7 +2,9 @@
 import { createField, createReadonlyField, Field, ReadonlyField } from './field'
 import { Shared } from './types'
 
-type Predicate<TSingle> = (value: TSingle) => boolean
+type Primitive = number | string | boolean
+type PredicateOnly<TSingle> = (value: TSingle) => boolean
+type Predicate<TSingle> = TSingle extends Primitive ? TSingle | PredicateOnly<TSingle> : PredicateOnly<TSingle>
 
 type GetOne<TSingle> = (predicate: Predicate<TSingle>) => Promise<TSingle | null>
 type AddOne<TSingle> = (value: TSingle) => Promise<TSingle>
@@ -25,6 +27,12 @@ type FieldParams = {
   name: string
 }
 
+function withPrimitives<TSingle>(predicate: Predicate<TSingle>): PredicateOnly<TSingle> {
+  const isCallback = typeof predicate === 'function'
+  if (isCallback) return predicate
+  return (value) => value === predicate
+}
+
 export function createReadonlyCollection<TSingle>(params: FieldParams): ReadonlyCollection<TSingle> {
   const readonlyField = createReadonlyField<TSingle[]>(params)
 
@@ -32,7 +40,7 @@ export function createReadonlyCollection<TSingle>(params: FieldParams): Readonly
     ...readonlyField,
     getOne: async (predicate) => {
       const values = await readonlyField.get()
-      return values.find(predicate) || null
+      return values.find(withPrimitives(predicate)) || null
     },
   }
 }
@@ -54,7 +62,7 @@ export function createCollection<TSingle>(params: FieldParams): Collection<TSing
       let done = false
       let updated: TSingle | null = null
       const newCollection = values.map((value) => {
-        const matches = predicate(value)
+        const matches = withPrimitives(predicate)(value)
         if (!matches || done) return value
         updated = { ...value, ...updates }
         done = true
@@ -68,7 +76,7 @@ export function createCollection<TSingle>(params: FieldParams): Collection<TSing
       let done = false
       let deleted: TSingle | null = null
       const newCollection = values.filter((value) => {
-        const matches = predicate(value)
+        const matches = withPrimitives(predicate)(value)
         if (!matches || done) return false
         deleted = value
         done = true
