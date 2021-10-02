@@ -1,11 +1,8 @@
 import axios, { AxiosRequestConfig } from 'axios'
 import { Collection, createCollection, createReadonlyCollection, ReadonlyCollection } from './collection'
 import { handleError } from './exceptions'
-import { createField, createReadonlyField } from './field'
+import { createField, createReadonlyField, Field, ReadonlyField } from './field'
 import { ReadonlyVaultConfig, Shared, VaultConfig, WritableVaultConfig } from './types'
-
-type Field<T> = T
-type ReadonlyField<T> = T
 
 export type ReadonlyVault = {
   field: <TValue>(name: string) => Field<TValue>
@@ -60,3 +57,7 @@ export function createVault<TConfig extends VaultConfig>(
     collection: (name) => createCollection({ name, shared }),
   } as Vault
 }
+
+const vault = createVault({} as VaultConfig)
+
+vault.field<123>('sdfsdf')
