@@ -22,7 +22,7 @@ export type Collection<TSingle> = Field<TSingle[]> &
     deleteOne: DeleteOne<TSingle>
   }
 
-type FieldParams = {
+interface FieldParams {
   shared: Shared
   name: string
 }

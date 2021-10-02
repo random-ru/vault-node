@@ -4,12 +4,12 @@ import { handleError } from './exceptions'
 import { createField, createReadonlyField, Field, ReadonlyField } from './field'
 import { ReadonlyVaultConfig, Shared, VaultConfig, WritableVaultConfig } from './types'
 
-export type ReadonlyVault = {
+export interface ReadonlyVault {
   field: <TValue>(name: string) => ReadonlyField<TValue>
   collection: <TSingle>(name: string) => ReadonlyCollection<TSingle>
 }
 
-export type Vault = ReadonlyVault & {
+export interface Vault extends ReadonlyVault {
   field: <TValue>(name: string) => Field<TValue>
   collection: <TSingle>(name: string) => Collection<TSingle>
 }

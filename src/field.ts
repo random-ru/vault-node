@@ -3,7 +3,7 @@ import { Shared } from './types'
 type Get<TValue> = () => Promise<TValue>
 type Set<TValue> = (value: TValue) => Promise<void>
 
-export type ReadonlyField<TValue> = {
+export interface ReadonlyField<TValue> {
   get: Get<TValue>
 }
 
@@ -11,7 +11,7 @@ export type Field<TValue> = ReadonlyField<TValue> & {
   set: Set<TValue>
 }
 
-type FieldParams = {
+interface FieldParams {
   shared: Shared
   name: string
 }

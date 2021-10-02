@@ -1,12 +1,12 @@
 import { AxiosRequestConfig } from 'axios'
 
-export type ReadonlyVaultConfig = {
+export interface ReadonlyVaultConfig {
   domain?: string
   space: string
   app: string
 }
 
-export type WritableVaultConfig = {
+export interface WritableVaultConfig {
   domain?: string
   space: string
   app: string
@@ -16,6 +16,6 @@ export type WritableVaultConfig = {
 
 export type VaultConfig = ReadonlyVaultConfig | WritableVaultConfig
 
-export type Shared = {
+export interface Shared {
   request: <TData = void>(config: AxiosRequestConfig) => Promise<TData>
 }

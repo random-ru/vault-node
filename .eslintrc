@@ -6,8 +6,5 @@
     "@eslint-kit/node",
     "@eslint-kit/prettier"
   ],
-  "parser": "@typescript-eslint/parser",
-  "rules": {
-    "@typescript-eslint/consistent-type-definitions": ["warn", "type"]
-  }
+  "parser": "@typescript-eslint/parser"
 }
