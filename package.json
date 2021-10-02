@@ -3,8 +3,16 @@
   "version": "0.0.2",
   "description": "Vault bindings for Node.js",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "typings": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=6.0.0"
+  },
   "scripts": {
-    "build": "ncc build src/index.ts -o dist -m",
+    "build": "tsc && rollup -c",
     "test": "echo \"PASSED\""
   },
   "repository": {
@@ -25,7 +33,8 @@
   },
   "homepage": "https://github.com/random-ru/vault-node#readme",
   "dependencies": {
-    "axios": "^0.21.4"
+    "axios": "^0.21.4",
+    "lodash.camelcase": "^4.3.0"
   },
   "devDependencies": {
     "@eslint-kit/eslint-config-base": "^5.0.2",
@@ -33,11 +42,20 @@
     "@eslint-kit/eslint-config-patch": "^1.0.0",
     "@eslint-kit/eslint-config-prettier": "^4.0.0",
     "@eslint-kit/eslint-config-typescript": "^5.1.0",
+    "@rollup/plugin-commonjs": "^21.0.0",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^13.0.5",
+    "@rollup/plugin-typescript": "^8.2.5",
     "@types/axios": "^0.14.0",
     "@typescript-eslint/parser": "4.15.0",
     "@vercel/ncc": "^0.31.1",
+    "esbuild": "^0.13.3",
     "eslint": "7.10.0",
     "prettier": "2.3.0",
+    "rollup": "^2.58.0",
+    "rollup-plugin-dts": "^4.0.0",
+    "rollup-plugin-esbuild": "^4.5.0",
+    "rollup-plugin-terser": "^7.0.2",
     "typescript": "^4.4.3"
   }
 }
