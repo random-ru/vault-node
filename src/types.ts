@@ -6,7 +6,10 @@ export type ReadonlyVaultConfig = {
   app: string
 }
 
-export type WritableVaultConfig = ReadonlyVaultConfig & {
+export type WritableVaultConfig = {
+  domain?: string
+  space: string
+  app: string
   spaceKey: string
   appKey: string
 }

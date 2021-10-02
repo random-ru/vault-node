@@ -5,23 +5,23 @@ import { createField, createReadonlyField, Field, ReadonlyField } from './field'
 import { ReadonlyVaultConfig, Shared, VaultConfig, WritableVaultConfig } from './types'
 
 export type ReadonlyVault = {
-  field: <TValue>(name: string) => Field<TValue>
-  collection: <TSingle>(name: string) => Collection<TSingle>
-}
-
-export type Vault = ReadonlyVault & {
   field: <TValue>(name: string) => ReadonlyField<TValue>
   collection: <TSingle>(name: string) => ReadonlyCollection<TSingle>
 }
 
-function isReadonlyConfig(config: VaultConfig): config is WritableVaultConfig {
+export type Vault = ReadonlyVault & {
+  field: <TValue>(name: string) => Field<TValue>
+  collection: <TSingle>(name: string) => Collection<TSingle>
+}
+
+function isReadonlyConfig(config: VaultConfig): config is ReadonlyVaultConfig {
   const hasKeys = 'spaceKey' in config && 'appKey' in config
   return !hasKeys
 }
 
-export function createVault<TConfig extends VaultConfig>(
+export function createVault<TConfig extends WritableVaultConfig | ReadonlyVaultConfig>(
   config: TConfig
-): TConfig extends ReadonlyVaultConfig ? ReadonlyVault : Vault {
+): TConfig extends WritableVaultConfig ? Vault : ReadonlyVault {
   const { domain = 'https://vault.random.lgbt', space, app } = config
 
   const axiosConfig: AxiosRequestConfig = {
@@ -30,7 +30,7 @@ export function createVault<TConfig extends VaultConfig>(
 
   const isReadonly = isReadonlyConfig(config)
 
-  if (isReadonly) {
+  if (!isReadonly) {
     const { spaceKey, appKey } = config
     axiosConfig.headers = { Authorization: `${spaceKey}.${appKey}` }
   }
@@ -50,14 +50,11 @@ export function createVault<TConfig extends VaultConfig>(
     return {
       field: (name) => createReadonlyField({ name, shared }),
       collection: (name) => createReadonlyCollection({ name, shared }),
-    } as ReadonlyVault
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as ReadonlyVault as any
 
   return {
     field: (name) => createField({ name, shared }),
     collection: (name) => createCollection({ name, shared }),
   } as Vault
 }
-
-const vault = createVault({} as VaultConfig)
-
-vault.field<123>('sdfsdf')
