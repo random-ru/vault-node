@@ -10,7 +10,10 @@ yarn add rnd-vault
 import { createVault } from 'rnd-vault'
 
 // ReadOnly access
-const vault = createVault({ space: 'random', app: 'telegram-bot' })
+const vault = createVault({
+  space: 'random',
+  app: 'telegram-bot'
+})
 
 // Full access
 const vault = createVault({
@@ -28,7 +31,7 @@ const admin = vault.field<Admin>('admin')
 
 admin.get() // Promise<Admin>
 
-// only with Full access
+// only with the full access
 admin.set(admin) // Promise<void>
 ```
 
@@ -40,7 +43,7 @@ const users = vault.collection<User>('users')
 users.get() // Promise<User[]>
 users.getOne(user => user.id === 123) // Promise<User | null>
 
-// only with Full access
+// only with the full access
 users.set(users) // Promise<void>
 users.addOne(user) // Promise<User>
 users.updateOne(user => user.id === 123, { age: 27 /* пажилой */ }) // Promise<User | null>
