@@ -2,16 +2,28 @@ import axios, { AxiosRequestConfig } from 'axios'
 import { Collection, createCollection, createReadonlyCollection, ReadonlyCollection } from './collection'
 import { handleError } from './exceptions'
 import { createField, createReadonlyField, Field, ReadonlyField } from './field'
-import { ReadonlyVaultConfig, Shared, VaultConfig, WritableVaultConfig } from './types'
+import { DefaultSerialized, FieldOptions, ReadonlyVaultConfig, Shared, VaultConfig, WritableVaultConfig } from './types'
 
 export interface ReadonlyVault {
-  field: <TValue>(name: string) => ReadonlyField<TValue>
-  collection: <TSingle>(name: string) => ReadonlyCollection<TSingle>
+  field: <TValue, TSerialized = DefaultSerialized>(
+    name: string,
+    options?: FieldOptions<TValue, TSerialized>
+  ) => ReadonlyField<TValue>
+  collection: <TValue, TSerialized = DefaultSerialized>(
+    name: string,
+    options?: FieldOptions<TValue, TSerialized>
+  ) => ReadonlyCollection<TValue>
 }
 
 export interface Vault extends ReadonlyVault {
-  field: <TValue>(name: string) => Field<TValue>
-  collection: <TSingle>(name: string) => Collection<TSingle>
+  field: <TValue, TSerialized = DefaultSerialized>(
+    name: string,
+    options?: FieldOptions<TValue, TSerialized>
+  ) => Field<TValue>
+  collection: <TValue, TSerialized = DefaultSerialized>(
+    name: string,
+    options?: FieldOptions<TValue, TSerialized>
+  ) => Collection<TValue>
 }
 
 function isReadonlyConfig(config: VaultConfig): config is ReadonlyVaultConfig {
@@ -48,13 +60,13 @@ export function createVault<TConfig extends WritableVaultConfig | ReadonlyVaultC
 
   if (isReadonly)
     return {
-      field: (name) => createReadonlyField({ name, shared }),
-      collection: (name) => createReadonlyCollection({ name, shared }),
+      field: (name, options) => createReadonlyField({ name, shared, options }),
+      collection: (name, options) => createReadonlyCollection({ name, shared, options }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as ReadonlyVault as any
 
   return {
-    field: (name) => createField({ name, shared }),
-    collection: (name) => createCollection({ name, shared }),
+    field: (name, options) => createField({ name, shared, options }),
+    collection: (name, options) => createCollection({ name, shared, options }),
   } as Vault
 }

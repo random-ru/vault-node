@@ -1,89 +1,110 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createField, createReadonlyField, Field, ReadonlyField } from './field'
-import { Shared } from './types'
+import { FieldParams, Get, Set } from './field'
+import { getSerializationFunctions } from './serialization'
+import { DefaultSerialized } from './types'
 
 type Primitive = number | string | boolean
-type PredicateOnly<TSingle> = (value: TSingle) => boolean
-type Predicate<TSingle> = TSingle extends Primitive ? TSingle | PredicateOnly<TSingle> : PredicateOnly<TSingle>
+type PredicateOnly<TValue> = (value: TValue) => boolean
+type Predicate<TValue> = TValue extends Primitive ? TValue | PredicateOnly<TValue> : PredicateOnly<TValue>
 
-type GetOne<TSingle> = (predicate: Predicate<TSingle>) => Promise<TSingle | null>
-type AddOne<TSingle> = (value: TSingle) => Promise<TSingle>
-type UpdateOne<TSingle> = (predicate: Predicate<TSingle>, value: Partial<TSingle>) => Promise<TSingle | null>
-type DeleteOne<TSingle> = (predicate: Predicate<TSingle>) => Promise<TSingle | null>
+type GetOne<TValue> = (predicate: Predicate<TValue>) => Promise<TValue | null>
+type AddOne<TValue> = (value: TValue) => Promise<TValue>
+type UpdateOne<TValue> = (predicate: Predicate<TValue>, value: Partial<TValue>) => Promise<TValue | null>
+type DeleteOne<TValue> = (predicate: Predicate<TValue>) => Promise<TValue | null>
 
-export type ReadonlyCollection<TSingle> = ReadonlyField<TSingle[]> & {
-  getOne: GetOne<TSingle>
+export interface ReadonlyCollection<TValue> {
+  get: Get<TValue[]>
+  getOne: GetOne<TValue>
 }
 
-export type Collection<TSingle> = Field<TSingle[]> &
-  ReadonlyCollection<TSingle> & {
-    addOne: AddOne<TSingle>
-    updateOne: UpdateOne<TSingle>
-    deleteOne: DeleteOne<TSingle>
-  }
-
-interface FieldParams {
-  shared: Shared
-  name: string
+export interface Collection<TValue> extends ReadonlyCollection<TValue> {
+  set: Set<TValue[]>
+  addOne: AddOne<TValue>
+  updateOne: UpdateOne<TValue>
+  deleteOne: DeleteOne<TValue>
 }
 
-function withPrimitives<TSingle>(predicate: Predicate<TSingle>): PredicateOnly<TSingle> {
+function withPrimitives<TValue>(predicate: Predicate<TValue>): PredicateOnly<TValue> {
   const isCallback = typeof predicate === 'function'
   if (isCallback) return predicate
   return (value) => value === predicate
 }
 
-export function createReadonlyCollection<TSingle>(params: FieldParams): ReadonlyCollection<TSingle> {
-  const readonlyField = createReadonlyField<TSingle[]>(params)
+export function createReadonlyCollection<TValue, TSerialized = DefaultSerialized>(
+  params: FieldParams<TValue, TSerialized>
+): ReadonlyCollection<TValue> {
+  const { name, shared, options = {} } = params
+  const { deserialize } = getSerializationFunctions(options)
+
+  const get: Get<TValue[]> = async () => {
+    const values = await shared.request<TSerialized[]>({ method: 'get', url: name })
+    return values.map(deserialize)
+  }
+
+  const getOne: GetOne<TValue> = async (predicate) => {
+    const values = await get()
+    return values.find(withPrimitives(predicate)) || null
+  }
 
   return {
-    ...readonlyField,
-    getOne: async (predicate) => {
-      const values = await readonlyField.get()
-      return values.find(withPrimitives(predicate)) || null
-    },
+    get,
+    getOne,
   }
 }
 
-export function createCollection<TSingle>(params: FieldParams): Collection<TSingle> {
-  const readonlyCollection = createReadonlyCollection<TSingle>(params)
-  const field = createField<TSingle[]>(params)
+export function createCollection<TValue, TSerialized = DefaultSerialized>(
+  params: FieldParams<TValue, TSerialized>
+): Collection<TValue> {
+  const { name, shared, options = {} } = params
+  const { serialize } = getSerializationFunctions(options)
+
+  const readonlyCollection = createReadonlyCollection<TValue>(params)
+
+  const set: Set<TValue[]> = async (values) => {
+    const serialized = values.map(serialize)
+    await shared.request({ method: 'put', url: name, data: serialized })
+  }
+
+  const addOne: AddOne<TValue> = async (value) => {
+    const values = await readonlyCollection.get()
+    await set(values.concat(value))
+    return value
+  }
+
+  const updateOne: UpdateOne<TValue> = async (predicate, updates) => {
+    const values = await readonlyCollection.get()
+    let done = false
+    let updated: TValue | null = null
+    const newCollection = values.map((value) => {
+      const matches = withPrimitives(predicate)(value)
+      if (!matches || done) return value
+      updated = { ...value, ...updates }
+      done = true
+      return updated
+    })
+    await set(newCollection)
+    return updated
+  }
+
+  const deleteOne: DeleteOne<TValue> = async (predicate) => {
+    const values = await readonlyCollection.get()
+    let done = false
+    let deleted: TValue | null = null
+    const newCollection = values.filter((value) => {
+      const matches = withPrimitives(predicate)(value)
+      if (!matches || done) return false
+      deleted = value
+      done = true
+      return true
+    })
+    await set(newCollection)
+    return deleted
+  }
 
   return {
-    ...field,
     ...readonlyCollection,
-    addOne: async (value) => {
-      const values = await field.get()
-      await field.set(values.concat(value))
-      return value
-    },
-    updateOne: async (predicate, updates) => {
-      const values = await field.get()
-      let done = false
-      let updated: TSingle | null = null
-      const newCollection = values.map((value) => {
-        const matches = withPrimitives(predicate)(value)
-        if (!matches || done) return value
-        updated = { ...value, ...updates }
-        done = true
-        return updated
-      })
-      await field.set(newCollection)
-      return updated
-    },
-    deleteOne: async (predicate) => {
-      const values = await field.get()
-      let done = false
-      let deleted: TSingle | null = null
-      const newCollection = values.filter((value) => {
-        const matches = withPrimitives(predicate)(value)
-        if (!matches || done) return false
-        deleted = value
-        done = true
-        return true
-      })
-      await field.set(newCollection)
-      return deleted
-    },
+    set,
+    addOne,
+    updateOne,
+    deleteOne,
   }
 }

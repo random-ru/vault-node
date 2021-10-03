@@ -1,34 +1,53 @@
-import { Shared } from './types'
+import { getSerializationFunctions } from './serialization'
+import { DefaultSerialized, FieldOptions, Shared } from './types'
 
-type Get<TValue> = () => Promise<TValue>
-type Set<TValue> = (value: TValue) => Promise<void>
+export type Get<TValue> = () => Promise<TValue>
+export type Set<TValue> = (value: TValue) => Promise<void>
 
 export interface ReadonlyField<TValue> {
   get: Get<TValue>
 }
 
-export type Field<TValue> = ReadonlyField<TValue> & {
+export interface Field<TValue> extends ReadonlyField<TValue> {
   set: Set<TValue>
 }
 
-interface FieldParams {
+export interface FieldParams<TValue, TSerialized> {
   shared: Shared
   name: string
+  options?: FieldOptions<TValue, TSerialized>
 }
 
-export function createReadonlyField<TValue>(params: FieldParams): ReadonlyField<TValue> {
-  const { shared, name } = params
+export function createReadonlyField<TValue, TSerialized = DefaultSerialized>(
+  params: FieldParams<TValue, TSerialized>
+): ReadonlyField<TValue> {
+  const { shared, name, options = {} } = params
+  const { deserialize } = getSerializationFunctions(options)
+
+  const get: Get<TValue> = async () => {
+    const value = await shared.request<TSerialized>({ method: 'get', url: name })
+    return deserialize(value)
+  }
 
   return {
-    get: () => shared.request({ method: 'get', url: name }),
+    get,
   }
 }
 
-export function createField<TValue>(params: FieldParams): Field<TValue> {
-  const { shared, name } = params
+export function createField<TValue, TSerialized = DefaultSerialized>(
+  params: FieldParams<TValue, TSerialized>
+): Field<TValue> {
+  const { shared, name, options = {} } = params
+  const { serialize } = getSerializationFunctions(options)
+
+  const readonlyField = createReadonlyField(params)
+
+  const set: Set<TValue> = async (value) => {
+    await shared.request({ method: 'put', url: name, data: serialize(value) })
+  }
 
   return {
-    ...createReadonlyField(params),
-    set: (value) => shared.request({ method: 'put', url: name, data: value }),
+    ...readonlyField,
+    set,
   }
 }
