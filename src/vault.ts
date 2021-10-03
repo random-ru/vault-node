@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from 'axios'
 import { Collection, createCollection, createReadonlyCollection, ReadonlyCollection } from './collection'
+import { DEFAULT_DOMAIN } from './constants'
 import { handleError } from './exceptions'
 import { createField, createReadonlyField, Field, ReadonlyField } from './field'
 import { DefaultSerialized, FieldOptions, ReadonlyVaultConfig, Shared, VaultConfig, WritableVaultConfig } from './types'
@@ -31,10 +32,24 @@ function isReadonlyConfig(config: VaultConfig): config is ReadonlyVaultConfig {
   return !hasKeys
 }
 
-export function createVault<TConfig extends WritableVaultConfig | ReadonlyVaultConfig>(
+interface VaultContext {
+  shared: Shared
+}
+
+const createReadonlyVault = ({ shared }: VaultContext): ReadonlyVault => ({
+  field: (name, options) => createReadonlyField({ name, shared, options }),
+  collection: (name, options) => createReadonlyCollection({ name, shared, options }),
+})
+
+const createWritableVault = ({ shared }: VaultContext): Vault => ({
+  field: (name, options) => createField({ name, shared, options }),
+  collection: (name, options) => createCollection({ name, shared, options }),
+})
+
+export function createVault<TConfig extends VaultConfig>(
   config: TConfig
 ): TConfig extends WritableVaultConfig ? Vault : ReadonlyVault {
-  const { domain = 'https://vault.random.lgbt', space, app } = config
+  const { domain = DEFAULT_DOMAIN, space, app } = config
 
   const axiosConfig: AxiosRequestConfig = {
     baseURL: `${domain}/@/${space}/${app}`,
@@ -58,15 +73,11 @@ export function createVault<TConfig extends WritableVaultConfig | ReadonlyVaultC
     request,
   }
 
-  if (isReadonly)
-    return {
-      field: (name, options) => createReadonlyField({ name, shared, options }),
-      collection: (name, options) => createReadonlyCollection({ name, shared, options }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as ReadonlyVault as any
+  if (isReadonly) {
+    // https://github.com/microsoft/TypeScript/issues/24929
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return createReadonlyVault({ shared }) as any
+  }
 
-  return {
-    field: (name, options) => createField({ name, shared, options }),
-    collection: (name, options) => createCollection({ name, shared, options }),
-  } as Vault
+  return createWritableVault({ shared })
 }
