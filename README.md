@@ -46,3 +46,21 @@ users.addOne(user) // Promise<User>
 users.updateOne(user => user.id === 123, { age: 27 /* пажилой */ }) // Promise<User | null>
 users.deleteOne(user => user.id === 321) // Promise<User | null>
 ```
+
+## Serialization
+
+```ts
+/*
+ * First generic - target type (original value processed by 'deserialize')
+ * Second generic - source type (original value from Vault and 'serialize' result)
+ * 
+ * In this example, the user ids are stored in the Vault as strings
+ * We transform them to numbers using the 'deserialize' option
+ * So, we can work with values in a form convenient for us
+ * To transform them back to original form use the 'serialize' option
+ */
+const userIds = vault.collection<number, string>('users', {
+  serialize: String,
+  deserialize: Number
+})
+```
