@@ -40,14 +40,18 @@ admin.set(admin) // Promise<void>
 ```ts
 const users = vault.collection<User>('users')
 
-users.get() // Promise<User[]>
+users.getAll() // Promise<User[]>
 users.getOne(user => user.id === 123) // Promise<User | null>
 
 // only with the full access
-users.set(users) // Promise<void>
+users.setAll(users) // Promise<void>
 users.addOne(user) // Promise<User>
 users.updateOne(user => user.id === 123, { age: 27 /* пажилой */ }) // Promise<User | null>
+users.updateOne(user => user.id === 123, user => ({ age: user.age + 1 })) // Promise<User | null>
+users.updateAll(user => user.id === 123, { age: 27 /* пажилые */ }) // Promise<User[]>
+users.updateAll(user => user.id === 123, user => ({ age: user.age + 1 })) // Promise<User[]>
 users.deleteOne(user => user.id === 321) // Promise<User | null>
+users.deleteAll(user => user.id === 321) // Promise<User[]>
 ```
 
 ## Serialization
