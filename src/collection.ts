@@ -10,6 +10,7 @@ type GetOne<TValue> = (predicate: Predicate<TValue>) => Promise<TValue | null>
 type AddOne<TValue> = (value: TValue) => Promise<TValue>
 type UpdateOne<TValue> = (predicate: Predicate<TValue>, value: Partial<TValue>) => Promise<TValue | null>
 type DeleteOne<TValue> = (predicate: Predicate<TValue>) => Promise<TValue | null>
+type DeleteAll<TValue> = (predicate: Predicate<TValue>) => Promise<TValue[]>
 
 export interface ReadonlyCollection<TValue> {
   get: Get<TValue[]>
@@ -21,6 +22,7 @@ export interface Collection<TValue> extends ReadonlyCollection<TValue> {
   addOne: AddOne<TValue>
   updateOne: UpdateOne<TValue>
   deleteOne: DeleteOne<TValue>
+  deleteAll: DeleteAll<TValue>
 }
 
 function withPrimitives<TValue>(predicate: Predicate<TValue>): PredicateOnly<TValue> {
@@ -91,10 +93,24 @@ export function createCollection<TValue, TSerialized = DefaultSerialized>(
     let deleted: TValue | null = null
     const newCollection = values.filter((value) => {
       const matches = withPrimitives(predicate)(value)
-      if (!matches || done) return false
+      if (done) return true
+      if (!matches) return true
       deleted = value
       done = true
-      return true
+      return false
+    })
+    await set(newCollection)
+    return deleted
+  }
+
+  const deleteAll: DeleteAll<TValue> = async (predicate) => {
+    const values = await readonlyCollection.get()
+    const deleted: TValue[] = []
+    const newCollection = values.filter((value) => {
+      const matches = withPrimitives(predicate)(value)
+      if (!matches) return true
+      deleted.push(value)
+      return false
     })
     await set(newCollection)
     return deleted
@@ -106,5 +122,6 @@ export function createCollection<TValue, TSerialized = DefaultSerialized>(
     addOne,
     updateOne,
     deleteOne,
+    deleteAll,
   }
 }
