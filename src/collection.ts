@@ -14,7 +14,7 @@ type AddMultiple<TValue> = (values: TValue[]) => Promise<TValue[]>
 type DeleteOne<TValue> = (predicate: Predicate<TValue>) => Promise<TValue | null>
 type DeleteAll<TValue> = (predicate: Predicate<TValue>) => Promise<TValue[]>
 
-type Updater<TValue> = Partial<TValue> | ((value: TValue) => Partial<TValue>)
+type Updater<TValue> = Partial<TValue> | ((value: TValue) => TValue extends Primitive ? TValue : Partial<TValue>)
 type UpdateOne<TValue> = (predicate: Predicate<TValue>, updater: Updater<TValue>) => Promise<TValue | null>
 type UpdateAll<TValue> = (predicate: Predicate<TValue>, updater: Updater<TValue>) => Promise<TValue[]>
 
@@ -82,6 +82,7 @@ export function createCollection<TValue, TSerialized = DefaultSerialized>(
   }
 
   const addMultiple: AddMultiple<TValue> = async (added) => {
+    if (added.length === 0) return added
     const values = await readonlyCollection.getAll()
     await setAll(values.concat(added))
     return added
@@ -95,7 +96,7 @@ export function createCollection<TValue, TSerialized = DefaultSerialized>(
       const matches = withPrimitives(predicate)(value)
       if (!matches || done) return value
       const updates = typeof updater === 'function' ? updater(value) : updater
-      updated = { ...value, ...updates }
+      updated = typeof value === 'object' ? { ...value, ...updates } : (updates as TValue)
       done = true
       return updated
     })
@@ -110,7 +111,7 @@ export function createCollection<TValue, TSerialized = DefaultSerialized>(
       const matches = withPrimitives(predicate)(value)
       if (!matches) return value
       const updates = typeof updater === 'function' ? updater(value) : updater
-      const updated = { ...value, ...updates }
+      const updated = typeof value === 'object' ? { ...value, ...updates } : (updates as TValue)
       updatedAll.push(updated)
       return updated
     })
